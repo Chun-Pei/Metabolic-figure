@@ -1,0 +1,13 @@
+# R session files
+.RData
+.Rhistory
+.Rproj.user/
+
+# Experimental data and generated figures stay off GitHub
+metabolic tracing/
+summary/
+*.xlsx
+*.csv
+*.pptx
+*.pdf
+*.png
