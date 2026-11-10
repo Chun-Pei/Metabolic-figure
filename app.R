@@ -28,27 +28,36 @@ library(patchwork)
 # code from the sample name as their label.
 conditions <- tribble(
     ~code     , ~label                , ~order ,
-    "UL"      , "Unlabelled"          ,      1 ,
-    "N"       , "Normoxia"            ,      2 ,
-    "N MTX"   , "Normoxia + MTX"      ,      3 ,
-    "H4"      , "Hypoxia 4h"          ,      4 ,
-    "H4 MTX"  , "Hypoxia 4h + MTX"    ,      5 ,
-    "H6"      , "Hypoxia 6h"          ,      6 ,
-    "H6 MTX"  , "Hypoxia 6h + MTX"    ,      7 ,
-    "H48"     , "Hypoxia 48h"         ,      9 ,
-    "H48 MTX" , "Hypoxia 48h + MTX"   ,     11 ,
-    "0.4 mM"  , "0.4mM serine"        ,     12 ,
-    "0.8 mM"  , "0.8mM serine"        ,     13 ,
-    "UL KO"   , "Unlabelled HIF1B KO" ,     14 ,
-    "N KO"    , "Normoxia KO"         ,     15 ,
-    "H48 KO"  , "Hypoxia 48h KO"      ,     16
+    "UL"      , "Unlabelled"          ,  1     ,
+    "N"       , "Normoxia"            ,  2     ,
+    "N MTX"   , "Normoxia + MTX"      ,  3     ,
+    "H4"      , "Hypoxia 4h"          ,  4     ,
+    "H4 MTX"  , "Hypoxia 4h + MTX"    ,  5     ,
+    "H6"      , "Hypoxia 6h"          ,  6     ,
+    "H6 MTX"  , "Hypoxia 6h + MTX"    ,  7     ,
+    "H24"     , "Hypoxia 24h"         ,  8     ,
+    "H24 MTX" , "Hypoxia 24h + MTX"   ,  8.5   ,
+    "H48"     , "Hypoxia 48h"         ,  9     ,
+    "H48 MTX" , "Hypoxia 48h + MTX"   , 11     ,
+    "0.4 mM"  , "0.4mM serine"        , 12     ,
+    "0.8 mM"  , "0.8mM serine"        , 13     ,
+    "UL KO"   , "Unlabelled HIF1B KO" , 14     ,
+    "N KO"    , "Normoxia KO"         , 15     ,
+    "H48 KO"  , "Hypoxia 48h KO"      , 16
 )
 
 # Preferred facet order; metabolites not listed here go after these
 METABOLITE_ORDER <- c(
-    "AMP", "ADP", "ATP",
-    "Serine", "dTMP", "dTDP", "dTTP",
-    "SAM", "SAH", "Methionine"
+    "AMP",
+    "ADP",
+    "ATP",
+    "Serine",
+    "dTMP",
+    "dTDP",
+    "dTTP",
+    "SAM",
+    "SAH",
+    "Methionine"
 )
 
 # Isotopologue fill colours; heavier isotopologues get darker shades
@@ -76,19 +85,32 @@ find_tables <- function(path) {
 
     for (sheet in sheets) {
         cells <- as.data.frame(read_excel(
-            path, sheet = sheet, col_names = FALSE, col_types = "text",
+            path,
+            sheet = sheet,
+            col_names = FALSE,
+            col_types = "text",
             .name_repair = "unique_quiet"
         ))
-        if (nrow(cells) == 0) next
+        if (nrow(cells) == 0) {
+            next
+        }
         first <- cells[[1]]
-        is_header <- apply(cells, 1, function(r) any(grepl("M\\+[0-9]+\\s*$", r)))
+        is_header <- apply(cells, 1, function(r) {
+            any(grepl("M\\+[0-9]+\\s*$", r))
+        })
 
         for (h in which(is_header)) {
             end <- h
-            while (end < nrow(cells) && !is.na(first[end + 1]) && !is_header[end + 1]) {
+            while (
+                end < nrow(cells) &&
+                    !is.na(first[end + 1]) &&
+                    !is_header[end + 1]
+            ) {
                 end <- end + 1
             }
-            if (end == h) next
+            if (end == h) {
+                next
+            }
 
             header <- unlist(cells[h, ], use.names = FALSE)
             keep <- !is.na(header)
@@ -101,17 +123,27 @@ find_tables <- function(path) {
             title <- NA
             for (r in rev(seq_len(h - 1))) {
                 filled <- sum(!is.na(unlist(cells[r, ])))
-                if (filled == 0) next
-                if (filled == 1 && !is.na(first[r])) title <- first[r]
+                if (filled == 0) {
+                    next
+                }
+                if (filled == 1 && !is.na(first[r])) {
+                    title <- first[r]
+                }
                 break
             }
 
             block <- normalise_columns(block)
             if (is.na(title)) {
-                title <- if (isTRUE(attr(block, "from_areas"))) "Peak areas" else "Table"
+                title <- if (isTRUE(attr(block, "from_areas"))) {
+                    "Peak areas"
+                } else {
+                    "Table"
+                }
             }
             label <- paste0(title, " (rows ", h, "–", end, ")")
-            if (length(sheets) > 1) label <- paste0(sheet, ": ", label)
+            if (length(sheets) > 1) {
+                label <- paste0(sheet, ": ", label)
+            }
 
             tables[[length(tables) + 1]] <- list(label = label, data = block)
         }
@@ -123,7 +155,10 @@ find_tables <- function(path) {
 normalise_columns <- function(block) {
     # Repair a "%" typed in the wrong place (e.g. "d%TTP_M+2" -> "%dTTP_M+2")
     misplaced <- grepl("^[^%].*%.*M\\+[0-9]+", colnames(block))
-    colnames(block)[misplaced] <- paste0("%", str_remove_all(colnames(block)[misplaced], "%"))
+    colnames(block)[misplaced] <- paste0(
+        "%",
+        str_remove_all(colnames(block)[misplaced], "%")
+    )
 
     # Isotope columns without "%" hold raw peak areas. Mark them as "%" columns
     # (renormalisation later turns areas into % of total) and add a
@@ -131,16 +166,24 @@ normalise_columns <- function(block) {
     area_cols <- grep("^[^%].*M\\+[0-9]+\\s*$", colnames(block), value = TRUE)
     area_cols <- area_cols[!grepl("^Total", area_cols)]
     if (length(area_cols) > 0) {
-        areas <- sapply(block[area_cols], function(x) suppressWarnings(as.numeric(x)))
+        areas <- sapply(block[area_cols], function(x) {
+            suppressWarnings(as.numeric(x))
+        })
         areas <- matrix(areas, ncol = length(area_cols))
         met <- str_remove(area_cols, "[_ ]*M\\+[0-9]+\\s*$")
         for (m in unique(met)) {
             total_col <- paste("Total", m)
             if (!total_col %in% colnames(block)) {
-                block[[total_col]] <- rowSums(areas[, met == m, drop = FALSE], na.rm = TRUE)
+                block[[total_col]] <- rowSums(
+                    areas[, met == m, drop = FALSE],
+                    na.rm = TRUE
+                )
             }
         }
-        colnames(block)[match(area_cols, colnames(block))] <- paste0("%", area_cols)
+        colnames(block)[match(area_cols, colnames(block))] <- paste0(
+            "%",
+            area_cols
+        )
         attr(block, "from_areas") <- TRUE
     }
     block
@@ -166,7 +209,11 @@ load_tracing <- function(data) {
         recode(!!!CONDITION_MAP)
 
     iso <- data %>%
-        pivot_longer(cols = all_of(iso_cols), names_to = "variable", values_to = "fraction") %>%
+        pivot_longer(
+            cols = all_of(iso_cols),
+            names_to = "variable",
+            values_to = "fraction"
+        ) %>%
         mutate(
             metabolite = variable %>%
                 str_remove("^%\\s*") %>%
@@ -182,7 +229,11 @@ load_tracing <- function(data) {
 
     total <- data %>%
         select(Sample, Condition, starts_with("Total")) %>%
-        pivot_longer(cols = starts_with("Total"), names_to = "metabolite", values_to = "abundance") %>%
+        pivot_longer(
+            cols = starts_with("Total"),
+            names_to = "metabolite",
+            values_to = "abundance"
+        ) %>%
         mutate(
             metabolite = str_remove(metabolite, "^Total\\s*"),
             abundance = suppressWarnings(as.numeric(abundance))
@@ -190,18 +241,32 @@ load_tracing <- function(data) {
         filter(!is.na(abundance))
 
     metabolites <- unique(c(iso$metabolite, total$metabolite))
-    metabolites <- c(intersect(METABOLITE_ORDER, metabolites), setdiff(metabolites, METABOLITE_ORDER))
+    metabolites <- c(
+        intersect(METABOLITE_ORDER, metabolites),
+        setdiff(metabolites, METABOLITE_ORDER)
+    )
 
     found <- unique(data$Condition)
-    conds <- c(intersect(condition_order, found), sort(setdiff(found, condition_order)))
+    conds <- c(
+        intersect(condition_order, found),
+        sort(setdiff(found, condition_order))
+    )
 
-    list(iso = iso, total = total, metabolites = metabolites, conditions = conds)
+    list(
+        iso = iso,
+        total = total,
+        metabolites = metabolites,
+        conditions = conds
+    )
 }
 
 # Mean ± SEM per condition x metabolite x isotope, plus stack positions
 summarise_isotopes <- function(iso, metabolites, conds) {
     isotope_levels <- unique(iso$isotope)
-    isotope_levels <- isotope_levels[order(as.integer(str_extract(isotope_levels, "[0-9]+$")))]
+    isotope_levels <- isotope_levels[order(as.integer(str_extract(
+        isotope_levels,
+        "[0-9]+$"
+    )))]
 
     iso %>%
         filter(metabolite %in% metabolites, Condition %in% conds) %>%
@@ -233,7 +298,10 @@ isotope_palette <- function(isotopes) {
 }
 
 build_figure <- function(iso_summary, total, metabolites, conds, opts) {
-    p_iso <- ggplot(iso_summary, aes(x = Condition, y = mean_fraction, fill = isotope)) +
+    p_iso <- ggplot(
+        iso_summary,
+        aes(x = Condition, y = mean_fraction, fill = isotope)
+    ) +
         geom_bar(
             stat = "identity",
             color = "black",
@@ -242,7 +310,16 @@ build_figure <- function(iso_summary, total, metabolites, conds, opts) {
             na.rm = TRUE
         ) +
         facet_wrap(~metabolite, nrow = 1) +
-        scale_fill_manual(values = isotope_palette(levels(iso_summary$isotope))) +
+        scale_fill_manual(
+            values = isotope_palette(levels(iso_summary$isotope))
+        ) +
+        # Same 0-100 axis in every figure, with a small gap between the bars
+        # and the metabolite labels (coord_cartesian zooms, so no data is dropped)
+        scale_y_continuous(
+            breaks = seq(0, 100, 25),
+            expand = expansion(mult = c(0, 0.08))
+        ) +
+        coord_cartesian(ylim = c(0, 100)) +
         labs(y = "Fraction of total", x = "") +
         theme_classic(base_size = opts$base_size) +
         theme(
@@ -255,7 +332,11 @@ build_figure <- function(iso_summary, total, metabolites, conds, opts) {
     if (opts$error_bars) {
         p_iso <- p_iso +
             geom_errorbar(
-                aes(y = cumsum_top, ymin = cumsum_top - sem, ymax = cumsum_top + sem),
+                aes(
+                    y = cumsum_top,
+                    ymin = cumsum_top - sem,
+                    ymax = cumsum_top + sem
+                ),
                 width = 0.18,
                 linewidth = 0.55,
                 colour = "black",
@@ -308,30 +389,78 @@ ui <- fluidPage(
     sidebarLayout(
         sidebarPanel(
             width = 3,
-            fileInput("file", "Input workbook (.xlsx)", accept = c(".xlsx", ".xls")),
+            actionButton(
+                "browse",
+                "Browse on this computer…",
+                icon = icon("folder-open"),
+                class = "btn-primary"
+            ),
+            helpText(
+                "Figures can then be saved straight into the workbook's folder."
+            ),
+            fileInput(
+                "file",
+                "…or upload a workbook (.xlsx)",
+                accept = c(".xlsx", ".xls")
+            ),
             selectInput("table", "Table in workbook", choices = NULL),
-            helpText("Raw peak-area tables are converted to % of each sample's total."),
+            helpText(
+                "Raw peak-area tables are converted to % of each sample's total."
+            ),
             selectizeInput(
-                "metabolites", "Metabolites (in facet order)",
-                choices = NULL, multiple = TRUE,
+                "metabolites",
+                "Metabolites (in facet order)",
+                choices = NULL,
+                multiple = TRUE,
                 options = list(plugins = list("remove_button"))
             ),
             selectizeInput(
-                "conditions", "Conditions (in x-axis order)",
-                choices = NULL, multiple = TRUE,
+                "conditions",
+                "Conditions (in x-axis order)",
+                choices = NULL,
+                multiple = TRUE,
                 options = list(plugins = list("remove_button"))
             ),
-            actionButton("all_conditions", "Select all conditions", class = "btn-sm"),
+            actionButton(
+                "all_conditions",
+                "Select all conditions",
+                class = "btn-sm"
+            ),
             hr(),
             checkboxInput("show_total", "Show total-abundance panel", TRUE),
             checkboxInput("error_bars", "Show error bars (SEM)", TRUE),
-            radioButtons("legend", "Legend", c("Bottom" = "bottom", "Right" = "right"), inline = TRUE),
-            sliderInput("base_size", "Font size", min = 8, max = 20, value = 14),
+            radioButtons(
+                "legend",
+                "Legend",
+                c("Bottom" = "bottom", "Right" = "right"),
+                inline = TRUE
+            ),
+            sliderInput(
+                "base_size",
+                "Font size",
+                min = 8,
+                max = 20,
+                value = 14
+            ),
             hr(),
             fluidRow(
-                column(6, numericInput("width", "Width (in)", 10, min = 3, max = 30)),
-                column(6, numericInput("height", "Height (in)", 8, min = 3, max = 30))
+                column(
+                    6,
+                    numericInput("width", "Width (in)", 10, min = 3, max = 30)
+                ),
+                column(
+                    6,
+                    numericInput("height", "Height (in)", 8, min = 3, max = 30)
+                )
             ),
+            actionButton(
+                "save_here",
+                "Save PDF + PNG + CSV next to workbook",
+                icon = icon("floppy-disk"),
+                class = "btn-success"
+            ),
+            br(),
+            br(),
             downloadButton("download_pdf", "PDF"),
             downloadButton("download_png", "PNG (600 dpi)"),
             downloadButton("download_csv", "Summary CSV")
@@ -349,15 +478,58 @@ ui <- fluidPage(
 ############################################################
 
 server <- function(input, output, session) {
+    # The workbook in use. `local` = TRUE when picked with "Browse", so its
+    # real folder is known; a browser upload is only a temporary copy.
+    source_file <- reactiveVal(NULL)
+
+    observeEvent(input$file, {
+        source_file(list(
+            path = input$file$datapath,
+            name = input$file$name,
+            local = FALSE
+        ))
+    })
+
+    observeEvent(input$browse, {
+        path <- tryCatch(
+            if (.Platform$OS.type == "windows") {
+                choose.files(
+                    caption = "Choose a workbook",
+                    multi = FALSE,
+                    filters = rbind(
+                        c("Excel workbooks", "*.xlsx;*.xls"),
+                        Filters["All", ]
+                    )
+                )
+            } else {
+                file.choose()
+            },
+            error = function(e) character(0)
+        )
+        if (length(path) == 1 && nzchar(path)) {
+            source_file(list(
+                path = normalizePath(path),
+                name = basename(path),
+                local = TRUE
+            ))
+        }
+    })
+
     tables <- reactive({
-        req(input$file)
+        req(source_file())
         found <- tryCatch(
-            find_tables(input$file$datapath),
+            find_tables(source_file()$path),
             error = function(e) {
-                validate(need(FALSE, paste("Could not read this file:", conditionMessage(e))))
+                validate(need(
+                    FALSE,
+                    paste("Could not read this file:", conditionMessage(e))
+                ))
             }
         )
-        validate(need(length(found) > 0, "No table with isotope columns (M+0, M+1, ...) found in this file."))
+        validate(need(
+            length(found) > 0,
+            "No table with isotope columns (M+0, M+1, ...) found in this file."
+        ))
         found
     })
 
@@ -365,7 +537,12 @@ server <- function(input, output, session) {
     observeEvent(tables(), {
         t <- tables()
         choices <- setNames(seq_along(t), vapply(t, `[[`, "", "label"))
-        updateSelectInput(session, "table", choices = choices, selected = length(t))
+        updateSelectInput(
+            session,
+            "table",
+            choices = choices,
+            selected = length(t)
+        )
     })
 
     dataset <- reactive({
@@ -378,13 +555,27 @@ server <- function(input, output, session) {
     # New file -> offer what it contains, preselecting everything
     observeEvent(dataset(), {
         d <- dataset()
-        updateSelectizeInput(session, "metabolites", choices = d$metabolites, selected = d$metabolites)
-        updateSelectizeInput(session, "conditions", choices = d$conditions, selected = d$conditions)
+        updateSelectizeInput(
+            session,
+            "metabolites",
+            choices = d$metabolites,
+            selected = d$metabolites
+        )
+        updateSelectizeInput(
+            session,
+            "conditions",
+            choices = d$conditions,
+            selected = d$conditions
+        )
     })
 
     observeEvent(input$all_conditions, {
         req(dataset())
-        updateSelectizeInput(session, "conditions", selected = dataset()$conditions)
+        updateSelectizeInput(
+            session,
+            "conditions",
+            selected = dataset()$conditions
+        )
     })
 
     iso_summary <- reactive({
@@ -393,7 +584,10 @@ server <- function(input, output, session) {
     })
 
     figure <- reactive({
-        validate(need(nrow(iso_summary()) > 0, "No isotope data for this selection."))
+        validate(need(
+            nrow(iso_summary()) > 0,
+            "No isotope data for this selection."
+        ))
         build_figure(
             iso_summary(),
             dataset()$total,
@@ -409,14 +603,21 @@ server <- function(input, output, session) {
     })
 
     output$status <- renderText({
-        if (is.null(input$file)) {
-            return("Upload a workbook to start.")
+        if (is.null(source_file())) {
+            return("Choose a workbook to start.")
         }
         d <- dataset()
         paste0(
-            input$file$name, " — ", tables()[[as.integer(input$table)]]$label, ": ",
-            n_distinct(d$iso$Sample), " samples, ",
-            length(d$metabolites), " metabolites, ", length(d$conditions), " conditions"
+            source_file()$name,
+            " — ",
+            tables()[[as.integer(input$table)]]$label,
+            ": ",
+            n_distinct(d$iso$Sample),
+            " samples, ",
+            length(d$metabolites),
+            " metabolites, ",
+            length(d$conditions),
+            " conditions"
         )
     })
 
@@ -424,30 +625,105 @@ server <- function(input, output, session) {
 
     file_stem <- function() {
         paste0(
-            tools::file_path_sans_ext(input$file$name), "_",
+            tools::file_path_sans_ext(source_file()$name),
+            "_",
             paste(input$metabolites, collapse = "_")
         )
     }
 
+    write_pdf <- function(file) {
+        ggsave(
+            file,
+            figure(),
+            width = input$width,
+            height = input$height,
+            device = "pdf"
+        )
+    }
+
+    write_png <- function(file) {
+        ggsave(
+            file,
+            figure(),
+            width = input$width,
+            height = input$height,
+            dpi = 600,
+            device = "png"
+        )
+    }
+
+    write_csv <- function(file) {
+        write.csv(select(iso_summary(), -cumsum_top), file, row.names = FALSE)
+    }
+
+    observeEvent(input$save_here, {
+        src <- source_file()
+        if (is.null(src) || !src$local) {
+            showNotification(
+                "Use \"Browse on this computer…\" to open the workbook first — an uploaded copy doesn't know which folder it came from.",
+                type = "warning",
+                duration = 8
+            )
+            return()
+        }
+        req(figure())
+
+        stem <- file.path(dirname(src$path), file_stem())
+        saved <- c(
+            paste0(stem, "_figure.pdf"),
+            paste0(stem, "_figure.png"),
+            paste0(stem, "_summary.csv")
+        )
+        result <- tryCatch(
+            {
+                write_pdf(saved[1])
+                write_png(saved[2])
+                write_csv(saved[3])
+                NULL
+            },
+            error = function(e) conditionMessage(e)
+        )
+
+        if (is.null(result)) {
+            showNotification(
+                HTML(paste0(
+                    "Saved to ",
+                    htmltools::htmlEscape(dirname(src$path)),
+                    ":<br>",
+                    paste(
+                        htmltools::htmlEscape(basename(saved)),
+                        collapse = "<br>"
+                    )
+                )),
+                type = "message",
+                duration = 10
+            )
+        } else {
+            showNotification(
+                paste(
+                    "Could not save:",
+                    result,
+                    "(is a file with this name open in another program?)"
+                ),
+                type = "error",
+                duration = 10
+            )
+        }
+    })
+
     output$download_pdf <- downloadHandler(
         filename = function() paste0(file_stem(), "_figure.pdf"),
-        content = function(file) {
-            ggsave(file, figure(), width = input$width, height = input$height, device = "pdf")
-        }
+        content = write_pdf
     )
 
     output$download_png <- downloadHandler(
         filename = function() paste0(file_stem(), "_figure.png"),
-        content = function(file) {
-            ggsave(file, figure(), width = input$width, height = input$height, dpi = 600, device = "png")
-        }
+        content = write_png
     )
 
     output$download_csv <- downloadHandler(
         filename = function() paste0(file_stem(), "_summary.csv"),
-        content = function(file) {
-            write.csv(select(iso_summary(), -cumsum_top), file, row.names = FALSE)
-        }
+        content = write_csv
     )
 }
 

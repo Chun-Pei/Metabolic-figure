@@ -92,20 +92,3 @@ R with the following packages: `readxl`, `dplyr`, `tidyr`, `ggplot2`,
 ```r
 install.packages(c("readxl", "dplyr", "tidyr", "ggplot2", "stringr", "patchwork"))
 ```
-
-## Other scripts in this folder
-
-These are earlier, single-purpose versions kept for reference; the
-unified pipeline above covers everything they did:
-
-| Script | What it did differently |
-|---|---|
-| `# metabolic figure.r` | Original version — hardcoded filenames, AMP/ADP/ATP only. |
-| `# metabolic figure pipeline.r` | Generalised with a file picker and more metabolites, but no `NF` handling or condition filtering. |
-| `# metabolic figure pipeline -text.r` | Same as V2 below, minus the bottom legend. |
-| `# metabolic figure pipeline -2 plot.r` | Joins two input files (e.g. one per instrument run) into a single figure. |
-| `# metabolic figure pipeline V2.r` | Full-featured: `NF` handling, isotope renormalisation, KO conditions, bottom legend. |
-| `# metabolic figure pipeline V2 -simple.r` | V2 restricted to the dTMP/dTDP/dTTP trio, with panels swapped (total abundance on top). |
-
-`APTX_function.svg` is a standalone reference diagram of Aprataxin (APTX)
-function, unrelated to the plotting pipeline.
